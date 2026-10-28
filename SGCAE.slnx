@@ -5,4 +5,7 @@
     <Project Path="src/SGCAE.Infrastructure/SGCAE.Infrastructure.csproj" />
     <Project Path="src/SGCAE.Api/SGCAE.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SGCAE.Domain.Tests/SGCAE.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
