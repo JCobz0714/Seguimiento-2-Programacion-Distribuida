@@ -1,0 +1,6 @@
+@SGCAE.Api_HostAddress = http://localhost:5080
+
+GET {{SGCAE.Api_HostAddress}}/health
+Accept: text/plain
+
+###

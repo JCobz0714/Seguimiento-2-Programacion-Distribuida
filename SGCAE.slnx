@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SGCAE.Domain/SGCAE.Domain.csproj" />
+    <Project Path="src/SGCAE.Application/SGCAE.Application.csproj" />
+    <Project Path="src/SGCAE.Infrastructure/SGCAE.Infrastructure.csproj" />
+    <Project Path="src/SGCAE.Api/SGCAE.Api.csproj" />
+  </Folder>
+</Solution>

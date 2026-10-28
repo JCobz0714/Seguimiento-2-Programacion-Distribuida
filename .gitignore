@@ -1,0 +1,31 @@
+# Archivos de los editores
+.vs/
+.idea/
+*.user
+*.suo
+
+# Compilacion y paquetes
+**/bin/
+**/obj/
+artifacts/
+*.nupkg
+*.snupkg
+
+# Resultados de pruebas
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# Configuracion local y secretos
+.env
+.env.*
+!.env.example
+appsettings.Local.json
+appsettings.*.Local.json
+*.pfx
+*.p12
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db

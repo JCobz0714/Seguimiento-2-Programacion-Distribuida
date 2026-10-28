@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SGCAE.Application/SGCAE.Application.csproj" />
+    <ProjectReference Include="../SGCAE.Infrastructure/SGCAE.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
