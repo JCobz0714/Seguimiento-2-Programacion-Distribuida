@@ -1,8 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
+    <UserSecretsId>sgcae-api-6d2f075c-230f-427d-9cb6-b30e05c8a803</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" Version="10.0.14" />
     <ProjectReference Include="../SGCAE.Application/SGCAE.Application.csproj" />
     <ProjectReference Include="../SGCAE.Infrastructure/SGCAE.Infrastructure.csproj" />
   </ItemGroup>

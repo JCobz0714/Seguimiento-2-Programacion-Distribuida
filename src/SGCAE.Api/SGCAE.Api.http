@@ -4,3 +4,8 @@ GET {{SGCAE.Api_HostAddress}}/health
 Accept: text/plain
 
 ###
+
+GET {{SGCAE.Api_HostAddress}}/health/db
+Accept: text/plain
+
+###

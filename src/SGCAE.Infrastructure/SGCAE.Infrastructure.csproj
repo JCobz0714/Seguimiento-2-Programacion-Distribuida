@@ -3,6 +3,9 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.14" />
+    <!-- Fija la dependencia transitiva de SqlClient en una version corregida. -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
     <ProjectReference Include="../SGCAE.Application/SGCAE.Application.csproj" />
   </ItemGroup>
 </Project>

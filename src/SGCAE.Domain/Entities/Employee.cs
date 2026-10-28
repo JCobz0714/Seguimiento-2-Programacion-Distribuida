@@ -6,14 +6,17 @@ namespace SGCAE.Domain.Entities;
 
 public sealed class Employee
 {
-    public Guid Id { get; } = Guid.NewGuid();
-    public EmployeeIdentification Identification { get; }
+    public Guid Id { get; private set; } = Guid.NewGuid();
+    public EmployeeIdentification Identification { get; private set; } = null!;
     public string FirstName { get; private set; } = null!;
     public string LastName { get; private set; } = null!;
     public EmailAddress Email { get; private set; } = null!;
     public string JobTitle { get; private set; } = null!;
     public string OrganizationalArea { get; private set; } = null!;
     public EmploymentStatus Status { get; private set; } = EmploymentStatus.Active;
+
+    // Permite rehidratar la entidad sin exponer una construccion invalida al consumidor.
+    private Employee() { }
 
     public Employee(EmployeeIdentification identification, string firstName, string lastName,
         EmailAddress email, string jobTitle, string organizationalArea)

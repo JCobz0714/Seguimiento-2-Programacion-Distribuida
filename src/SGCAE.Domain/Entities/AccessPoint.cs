@@ -4,9 +4,12 @@ namespace SGCAE.Domain.Entities;
 
 public sealed class AccessPoint
 {
-    public Guid Id { get; } = Guid.NewGuid();
-    public string Name { get; }
+    public Guid Id { get; private set; } = Guid.NewGuid();
+    public string Name { get; private set; } = null!;
     public bool IsEnabled { get; private set; }
+
+    // Permite rehidratar la entidad sin exponer una construccion invalida al consumidor.
+    private AccessPoint() { }
 
     public AccessPoint(string name, bool isEnabled = true)
     {

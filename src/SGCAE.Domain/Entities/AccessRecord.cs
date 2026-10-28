@@ -6,16 +6,19 @@ namespace SGCAE.Domain.Entities;
 // Evidencia inmutable de un intento, creada exclusivamente por la política de acceso.
 public sealed class AccessRecord
 {
-    public Guid Id { get; } = Guid.NewGuid();
-    public CredentialCode RequestedCredentialCode { get; }
-    public Guid RequestedAccessPointId { get; }
-    public Guid? CredentialId { get; }
-    public Guid? EmployeeId { get; }
-    public Guid? AccessPointId { get; }
-    public MovementType Movement { get; }
-    public DateTimeOffset OccurredAt { get; }
-    public AccessResult Result { get; }
-    public AccessRejectionReason? RejectionReason { get; }
+    public Guid Id { get; private set; } = Guid.NewGuid();
+    public CredentialCode RequestedCredentialCode { get; private set; } = null!;
+    public Guid RequestedAccessPointId { get; private set; }
+    public Guid? CredentialId { get; private set; }
+    public Guid? EmployeeId { get; private set; }
+    public Guid? AccessPointId { get; private set; }
+    public MovementType Movement { get; private set; }
+    public DateTimeOffset OccurredAt { get; private set; }
+    public AccessResult Result { get; private set; }
+    public AccessRejectionReason? RejectionReason { get; private set; }
+
+    // Permite rehidratar la entidad sin exponer una construccion invalida al consumidor.
+    private AccessRecord() { }
 
     internal AccessRecord(CredentialCode requestedCredentialCode, Guid requestedAccessPointId,
         Guid? credentialId, Guid? employeeId, Guid? accessPointId, MovementType movement,

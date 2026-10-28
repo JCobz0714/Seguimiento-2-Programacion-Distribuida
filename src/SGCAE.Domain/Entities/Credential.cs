@@ -6,10 +6,13 @@ namespace SGCAE.Domain.Entities;
 
 public sealed class Credential
 {
-    public Guid Id { get; } = Guid.NewGuid();
-    public Guid EmployeeId { get; }
-    public CredentialCode Code { get; }
+    public Guid Id { get; private set; } = Guid.NewGuid();
+    public Guid EmployeeId { get; private set; }
+    public CredentialCode Code { get; private set; } = null!;
     public CredentialStatus Status { get; private set; } = CredentialStatus.Active;
+
+    // Permite rehidratar la entidad sin exponer una construccion invalida al consumidor.
+    private Credential() { }
 
     public Credential(Employee employee, CredentialCode code)
     {

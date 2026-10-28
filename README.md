@@ -8,15 +8,18 @@ de accesos.
 
 La solución cuenta con la estructura de Clean Architecture, una API ejecutable
 y un dominio con entidades, objetos de valor y reglas de acceso probadas.
-Los casos de uso y la persistencia se incorporarán en las siguientes etapas.
+La persistencia usa Entity Framework Core 10.0.14 y SQL Server, con mapeos,
+restricciones, migración inicial y pruebas de integración. Los casos de uso
+CQRS y los endpoints de negocio se incorporarán en las siguientes etapas.
 Las reglas y decisiones del modelo se describen en la sección Modelo de dominio de este README.
 
 ## Requisitos de desarrollo
 
 - SDK .NET 10.0.401 o un parche posterior de la misma banda 10.0.4xx,
   según `global.json`.
-- SQL Server para la futura etapa de persistencia. La estructura inicial puede
-  compilarse y ejecutarse sin base de datos.
+- SQL Server. En Windows se puede usar SQL Server Express LocalDB con la
+  instancia `MSSQLLocalDB`; para otro servidor, configurar su conexión.
+- Acceso a NuGet para restaurar los paquetes y la herramienta local `dotnet-ef`.
 
 ## Organización de la solución
 
@@ -29,6 +32,7 @@ src/
   SGCAE.Api/             Endpoints HTTP y configuración de la aplicación.
 tests/
   SGCAE.Domain.Tests/    Pruebas de las reglas del negocio.
+  SGCAE.Infrastructure.Tests/ Pruebas de persistencia en SQL Server real.
 ```
 
 Las referencias entre proyectos son:
@@ -49,6 +53,7 @@ Desde la raíz del repositorio:
 
 ```powershell
 dotnet restore SGCAE.slnx
+dotnet tool restore
 dotnet build SGCAE.slnx --no-restore
 ```
 
@@ -58,9 +63,25 @@ dotnet build SGCAE.slnx --no-restore
 dotnet test SGCAE.slnx --configuration Release
 ```
 
-Las pruebas de dominio se ejecutan en memoria y no requieren SQL Server.
+El comando anterior ejecuta todas las pruebas y requiere SQL Server LocalDB
+en Windows o la variable de entorno `SGCAE_TEST_SQLSERVER` con la conexión
+a otro servidor SQL Server. La cuenta de pruebas debe poder crear y eliminar
+bases de datos. Cada ejecución crea una base `SGCAE_Tests_<Guid>`, aplica las
+migraciones y elimina únicamente esa base al finalizar. Cada prueba revierte
+sus datos mediante una transacción. No se usa la base `SGCAE_Taller2` para las pruebas.
+
+Para ejecutar solo las pruebas de dominio, sin SQL Server:
+
+```powershell
+dotnet test tests/SGCAE.Domain.Tests --configuration Release
+```
 
 Las pruebas cubren transiciones de estados, actualizaciones atómicas, validaciones de valores, todos los motivos de rechazo para entrada y salida, integridad de las referencias, fechas UTC y conservación del resultado histórico.
+
+Las pruebas de persistencia comprueban lectura y escritura de las cuatro
+entidades, objetos de valor y estados, todos los motivos de rechazo,
+unicidad de códigos e identificaciones, comparación sensible a mayúsculas,
+claves foráneas, restricciones de estados y coherencia entre modelo y migración.
 
 ## Ejecutar la API
 
@@ -77,13 +98,80 @@ Invoke-WebRequest http://localhost:5080/health
 ```
 
 La respuesta esperada es HTTP 200 con el texto `Healthy`. Esta comprobación
-confirma que la aplicación responde; todavía no valida una conexión a SQL Server.
+confirma que la aplicación responde. Para comprobar además la conexión a SQL Server:
+
+```powershell
+Invoke-WebRequest http://localhost:5080/health/db
+```
+
+`/health/db` devuelve HTTP 200 (`Healthy`) si puede conectar a la base configurada
+y HTTP 503 (`Unhealthy`) si no puede. No aplica migraciones ni comprueba por sí
+solo que el esquema esté actualizado. Aplicar la migración antes de usar la base.
 
 ## Configuración
 
-`appsettings.json` contiene únicamente configuración general. Las credenciales
-y cadenas de conexión privadas deberán proporcionarse mediante variables de
-entorno o secretos de usuario de .NET cuando se agregue la persistencia.
+`appsettings.json` contiene únicamente configuración general.
+`appsettings.Development.json` configura la base `SGCAE_Taller2` en
+`(localdb)\MSSQLLocalDB` con autenticación integrada de Windows, sin contraseña.
+Ese perfil permite confiar en el certificado local de desarrollo.
+
+Para usar otro servidor, configurar `ConnectionStrings:Sgcae` mediante secretos
+de usuario de .NET (solo Development) o la variable de entorno
+`ConnectionStrings__Sgcae`. No publicar contraseñas en archivos del repositorio.
+Fuera de Development se exige una conexión explícita; usar un certificado
+válido y `TrustServerCertificate=False` en un servidor desplegado.
+
+Ejemplo con autenticación integrada desde PowerShell (ajustar el servidor):
+
+```powershell
+$env:ConnectionStrings__Sgcae = 'Server=SERVIDOR;Database=SGCAE_Taller2;Integrated Security=True;Encrypt=True;TrustServerCertificate=False'
+```
+
+## Crear o actualizar la base de datos
+
+Para la instancia de desarrollo LocalDB, ejecutar desde la raíz:
+
+```powershell
+SqlLocalDB start MSSQLLocalDB
+dotnet tool restore
+dotnet ef database update --project src/SGCAE.Infrastructure --startup-project src/SGCAE.Api -- --environment Development
+```
+
+La herramienta usa la conexión de la API y crea la base si no existe. La
+migración `InitialCreate` está versionada junto con su snapshot en Infrastructure.
+La aplicación no aplica migraciones automáticamente durante el arranque.
+
+Para generar un script SQL revisable, sin aplicarlo:
+
+```powershell
+dotnet ef migrations script --idempotent --project src/SGCAE.Infrastructure --startup-project src/SGCAE.Api -- --environment Development
+```
+
+## Modelo de persistencia
+
+- `Employees`: identificación única y datos laborales.
+- `Credentials`: código único y clave foránea obligatoria hacia el empleado.
+- `AccessPoints`: nombre y disponibilidad del punto físico.
+- `AccessRecords`: fecha `datetimeoffset`, movimiento, resultado y motivo de rechazo.
+
+Los objetos de valor se convierten a columnas de texto conservando sus límites.
+Los índices únicos de identificación y código utilizan `Latin1_General_100_BIN2`
+para respetar la distinción de mayúsculas del dominio. Las claves Guid las
+genera el dominio. Las entidades mantienen setters privados y constructores
+privados para permitir su reconstrucción por EF Core sin exponer cambios libres
+al resto de la aplicación.
+
+Las claves foráneas usan `NO ACTION`: borrar una entidad referenciada falla
+en lugar de eliminar o desvincular su historial. Los intentos desconocidos
+conservan el código y el punto solicitados en columnas independientes; sus
+referencias a entidades existentes pueden ser nulas. Las restricciones CHECK
+validan estados, tipos de movimiento y coherencia entre resultado y motivo.
+Hay índices por fecha, empleado, punto y resultado, junto al identificador del
+registro, para apoyar las consultas y paginación de las próximas etapas.
+
+La base garantiza unicidad e integridad referencial. Las decisiones de acceso
+y las transiciones siguen siendo responsabilidad del dominio y de los futuros
+casos de uso. La persistencia no sustituye las reglas del negocio.
 
 ## Modelo de dominio
 
@@ -91,8 +179,8 @@ entorno o secretos de usuario de .NET cuando se agregue la persistencia.
 
 El dominio representa RF-01 (empleados), RF-02 (credenciales), RF-03 (movimientos)
 y RF-06 (puntos de acceso). Los registros contienen los datos necesarios para
-el futuro historial de RF-04. Esta etapa modela y prueba reglas en memoria;
-la persistencia, los casos de uso CQRS y los endpoints se incorporan después.
+el futuro historial de RF-04. Las reglas se prueban en memoria y su persistencia
+se verifica en SQL Server. Los casos de uso CQRS y los endpoints se incorporan después.
 
 ### Entidades y límites
 
@@ -123,9 +211,9 @@ Los códigos e identificaciones distinguen mayúsculas y minúsculas. El correo
 conserva su escritura y no se considera único.
 
 La unicidad global de identificación y código es un requisito del enunciado,
-pero no puede comprobarse dentro de una entidad aislada. Se garantizará con
-consultas de aplicación e índices únicos en SQL Server en las siguientes
-etapas, usando una comparación consistente con estos objetos de valor.
+pero no puede comprobarse dentro de una entidad aislada. Ya se garantiza con
+índices únicos en SQL Server; los futuros casos de uso añadirán validaciones
+de aplicación, usando una comparación consistente con estos objetos de valor.
 
 ### Decisiones para los aspectos no definidos por el enunciado
 
@@ -172,4 +260,5 @@ de los rechazos del negocio.
 
 AccessPolicy devuelve el registro tanto al autorizar como al rechazar.
 La futura capa de aplicación deberá guardar ambos resultados antes de responder;
-las pruebas de dominio no demuestran todavía persistencia ni concurrencia.
+las pruebas de integración ya verifican la persistencia de ambos resultados.
+La coordinación transaccional de los futuros casos de uso sigue pendiente.
