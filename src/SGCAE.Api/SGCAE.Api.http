@@ -1,9 +1,14 @@
 @SGCAE.Api_HostAddress = http://localhost:5080
+@identification = DEMO-001
+@credentialCode = DEMO-C-001
 @employeeId = 00000000-0000-0000-0000-000000000000
 @accessPointId = 00000000-0000-0000-0000-000000000000
 @credentialId = 00000000-0000-0000-0000-000000000000
 @historyFrom = 2026-10-28T00:00:00-05:00
 @historyTo = 2026-10-30T00:00:00-05:00
+
+# Ejecutar en orden. Cambiar identification y credentialCode al repetir.
+# Copiar cada Guid creado en su variable y ajustar las fechas del historial.
 
 GET {{SGCAE.Api_HostAddress}}/health
 Accept: text/plain
@@ -20,7 +25,7 @@ POST {{SGCAE.Api_HostAddress}}/api/employees
 Content-Type: application/json
 
 {
-  "identification": "00123",
+  "identification": "{{identification}}",
   "firstName": "Ana",
   "lastName": "Pérez",
   "email": "ana@example.com",
@@ -50,10 +55,6 @@ Content-Type: application/json
   "jobTitle": "Supervisora",
   "organizationalArea": "Logística"
 }
-
-###
-
-PATCH {{SGCAE.Api_HostAddress}}/api/employees/{{employeeId}}/deactivate
 
 ###
 
@@ -100,7 +101,7 @@ Content-Type: application/json
 
 {
   "employeeId": "{{employeeId}}",
-  "code": "C-001"
+  "code": "{{credentialCode}}"
 }
 
 ###
@@ -115,38 +116,12 @@ Accept: application/json
 
 ###
 
-PATCH {{SGCAE.Api_HostAddress}}/api/credentials/{{credentialId}}/block
-
-###
-
-PATCH {{SGCAE.Api_HostAddress}}/api/credentials/{{credentialId}}/revoke
-
-###
-
-# Historial completo, del más reciente al más antiguo.
-GET {{SGCAE.Api_HostAddress}}/api/access-records?page=1&pageSize=20
-Accept: application/json
-
-###
-
-# Ajustar fechas y los identificadores de los ejemplos anteriores.
-GET {{SGCAE.Api_HostAddress}}/api/access-records?employeeId={{employeeId}}&accessPointId={{accessPointId}}&result=Rejected&from={{historyFrom}}&to={{historyTo}}&page=1&pageSize=20
-Accept: application/json
-
-###
-
-# Rechazos de cualquier empleado y punto, incluidos los desconocidos.
-GET {{SGCAE.Api_HostAddress}}/api/access-records?result=Rejected&from={{historyFrom}}&to={{historyTo}}&page=1&pageSize=20
-Accept: application/json
-
-###
-
 # Para autorizar: empleado activo, credencial vigente y punto habilitado.
 POST {{SGCAE.Api_HostAddress}}/api/access-records
 Content-Type: application/json
 
 {
-  "credentialCode": "C-001",
+  "credentialCode": "{{credentialCode}}",
   "accessPointId": "{{accessPointId}}",
   "movement": "Entry"
 }
@@ -157,7 +132,7 @@ POST {{SGCAE.Api_HostAddress}}/api/access-records
 Content-Type: application/json
 
 {
-  "credentialCode": "C-001",
+  "credentialCode": "{{credentialCode}}",
   "accessPointId": "{{accessPointId}}",
   "movement": "Exit"
 }
@@ -169,9 +144,82 @@ POST {{SGCAE.Api_HostAddress}}/api/access-records
 Content-Type: application/json
 
 {
-  "credentialCode": "DESCONOCIDA",
+  "credentialCode": "UNKNOWN-{{credentialCode}}",
   "accessPointId": "{{accessPointId}}",
   "movement": "Entry"
 }
+
+###
+
+# Bloquear despues de comprobar las autorizaciones.
+PATCH {{SGCAE.Api_HostAddress}}/api/credentials/{{credentialId}}/block
+
+###
+
+# 201 Rejected / BlockedCredential.
+POST {{SGCAE.Api_HostAddress}}/api/access-records
+Content-Type: application/json
+
+{
+  "credentialCode": "{{credentialCode}}",
+  "accessPointId": "{{accessPointId}}",
+  "movement": "Entry"
+}
+
+###
+
+PATCH {{SGCAE.Api_HostAddress}}/api/credentials/{{credentialId}}/revoke
+
+###
+
+# 201 Rejected / RevokedCredential.
+POST {{SGCAE.Api_HostAddress}}/api/access-records
+Content-Type: application/json
+
+{
+  "credentialCode": "{{credentialCode}}",
+  "accessPointId": "{{accessPointId}}",
+  "movement": "Exit"
+}
+
+###
+
+PATCH {{SGCAE.Api_HostAddress}}/api/employees/{{employeeId}}/deactivate
+
+###
+
+# 201 Rejected / InactiveEmployee (tiene prioridad sobre la revocacion).
+POST {{SGCAE.Api_HostAddress}}/api/access-records
+Content-Type: application/json
+
+{
+  "credentialCode": "{{credentialCode}}",
+  "accessPointId": "{{accessPointId}}",
+  "movement": "Entry"
+}
+
+###
+
+# Historial completo, del mas reciente al mas antiguo.
+GET {{SGCAE.Api_HostAddress}}/api/access-records?page=1&pageSize=20
+Accept: application/json
+
+###
+
+# Tres rechazos del empleado y punto: primera pagina con dos elementos.
+GET {{SGCAE.Api_HostAddress}}/api/access-records?employeeId={{employeeId}}&accessPointId={{accessPointId}}&result=Rejected&from={{historyFrom}}&to={{historyTo}}&page=1&pageSize=2
+Accept: application/json
+
+###
+
+# Segunda pagina con el elemento restante (sin nuevos intentos entre consultas).
+GET {{SGCAE.Api_HostAddress}}/api/access-records?employeeId={{employeeId}}&accessPointId={{accessPointId}}&result=Rejected&from={{historyFrom}}&to={{historyTo}}&page=2&pageSize=2
+Accept: application/json
+
+###
+
+# Incluye rechazos por credenciales desconocidas, sin filtro por empleado.
+GET {{SGCAE.Api_HostAddress}}/api/access-records?result=Rejected&from={{historyFrom}}&to={{historyTo}}&page=1&pageSize=20
+Accept: application/json
 
 ###
