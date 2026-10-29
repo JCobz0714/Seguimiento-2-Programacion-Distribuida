@@ -15,6 +15,7 @@ de accesos.
 - [Entradas y salidas](#registro-de-entradas-y-salidas-rf-03) e [historial](#consulta-del-historial-rf-04)
 - [Modelo de dominio](#modelo-de-dominio)
 - [Demostración reproducible](#demostración-reproducible)
+- [Evidencias de funcionamiento](#evidencias-de-funcionamiento)
 - [Evidencias de validación](#evidencias-de-validación)
 - [Solución de problemas](#solución-de-problemas)
 
@@ -790,6 +791,15 @@ Para el recorrido manual, abrir [SGCAE.Api.http](src/SGCAE.Api/SGCAE.Api.http),
 ejecutar las solicitudes en orden y reemplazar sus variables con los Guid
 recibidos. Cambiar identificación y código si ya se usaron y ajustar el rango
 de fechas antes de filtrar el historial.
+
+## Evidencias de funcionamiento
+
+El documento PDF reúne las capturas de las pruebas realizadas en Postman y
+los resultados de las pruebas automatizadas. Cada evidencia identifica la
+operación y explica el resultado observado para facilitar la revisión de los
+requisitos del taller.
+
+[Consultar las evidencias de funcionamiento](Evidencias/Evidencias%20SGCAE%20Seguimiento%202.pdf)
 
 ## Evidencias de validación
 
