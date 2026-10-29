@@ -1,5 +1,6 @@
 @SGCAE.Api_HostAddress = http://localhost:5080
 @employeeId = 00000000-0000-0000-0000-000000000000
+@accessPointId = 00000000-0000-0000-0000-000000000000
 
 GET {{SGCAE.Api_HostAddress}}/health
 Accept: text/plain
@@ -50,5 +51,42 @@ Content-Type: application/json
 ###
 
 PATCH {{SGCAE.Api_HostAddress}}/api/employees/{{employeeId}}/deactivate
+
+###
+
+# Registrar un punto. Copiar el id devuelto en accessPointId.
+POST {{SGCAE.Api_HostAddress}}/api/access-points
+Content-Type: application/json
+
+{
+  "name": "Entrada principal",
+  "isEnabled": true
+}
+
+###
+
+# Registrar un punto inicialmente deshabilitado.
+POST {{SGCAE.Api_HostAddress}}/api/access-points
+Content-Type: application/json
+
+{
+  "name": "Entrada secundaria",
+  "isEnabled": false
+}
+
+###
+
+GET {{SGCAE.Api_HostAddress}}/api/access-points/{{accessPointId}}
+Accept: application/json
+
+###
+
+GET {{SGCAE.Api_HostAddress}}/api/access-points?page=1&pageSize=20
+Accept: application/json
+
+###
+
+GET {{SGCAE.Api_HostAddress}}/api/access-points?isEnabled=true&page=1&pageSize=20
+Accept: application/json
 
 ###

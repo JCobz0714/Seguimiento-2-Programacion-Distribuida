@@ -4,7 +4,7 @@ using SGCAE.Testing;
 
 namespace SGCAE.Api.Tests;
 
-public sealed class EmployeeApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
+public sealed class SgcaeApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 {
     public SqlServerFixture Database { get; } = new();
 

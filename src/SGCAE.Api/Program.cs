@@ -12,6 +12,7 @@ builder.Services.AddControllers()
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddEmployeeUseCases();
+builder.Services.AddAccessPointUseCases();
 builder.Services.AddInfrastructure(builder.Configuration.GetConnectionString("Sgcae"));
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<SgcaeDbContext>("sql-server", tags: ["database"]);

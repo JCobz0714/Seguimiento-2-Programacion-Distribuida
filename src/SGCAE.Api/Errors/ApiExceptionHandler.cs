@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using SGCAE.Application.Employees;
+using SGCAE.Application.AccessPoints;
 using SGCAE.Domain.Common;
 
 namespace SGCAE.Api.Errors;
@@ -12,7 +13,8 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails,
     {
         var (status, title) = exception switch
         {
-            DomainException or EmployeeQueryValidationException => (400, "Datos inválidos"),
+            DomainException or EmployeeQueryValidationException or AccessPointQueryValidationException => (400, "Datos inválidos"),
+            AccessPointNotFoundException => (404, "Punto de acceso no encontrado"),
             EmployeeNotFoundException => (404, "Empleado no encontrado"),
             DuplicateEmployeeIdentificationException => (409, "Identificación duplicada"),
             _ => (500, "Error interno")

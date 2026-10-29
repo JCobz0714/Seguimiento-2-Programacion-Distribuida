@@ -11,7 +11,8 @@ y un dominio con entidades, objetos de valor y reglas de acceso probadas.
 La persistencia usa Entity Framework Core 10.0.14 y SQL Server, con mapeos,
 restricciones, migración inicial y pruebas de integración. La gestión de
 empleados ya dispone de comandos, consultas y endpoints REST (RF-01).
-Credenciales, puntos de acceso, movimientos e historial se incorporarán
+Los puntos de acceso permiten registro y consulta con su estado (RF-06).
+Credenciales, movimientos e historial se incorporarán
 en las siguientes etapas.
 Las reglas y decisiones del modelo se describen en la sección Modelo de dominio de este README.
 
@@ -35,7 +36,7 @@ src/
 tests/
   SGCAE.Domain.Tests/    Pruebas de las reglas del negocio.
   SGCAE.Infrastructure.Tests/ Pruebas de persistencia en SQL Server real.
-  SGCAE.Api.Tests/       Pruebas HTTP de empleados con SQL Server real.
+  SGCAE.Api.Tests/       Pruebas HTTP de empleados y puntos con SQL Server real.
   Shared/               Preparación compartida de bases temporales de pruebas.
 ```
 
@@ -92,7 +93,10 @@ claves foráneas, restricciones de estados y coherencia entre modelo y migració
 Las pruebas HTTP de empleados recorren controlador, casos de uso, dominio y
 SQL Server: registro, consulta, actualización, desactivación repetida,
 conservación del historial, validaciones, duplicados (también concurrentes),
-paginación y lecturas sin seguimiento. Para ejecutarlas por separado:
+paginación y lecturas sin seguimiento. Las de puntos de acceso verifican
+registro habilitado/deshabilitado, estado predeterminado, consultas, filtro,
+conteo filtrado, paginación con nombres repetidos y errores de entrada.
+Para ejecutar las pruebas HTTP por separado:
 
 ```powershell
 dotnet test tests/SGCAE.Api.Tests --configuration Release
@@ -249,6 +253,46 @@ de consultar, actualizar o desactivar. Repetir el POST con la misma
 identificación produce 409. Una página posterior al último resultado devuelve
 una lista vacía; los números de página deben ser positivos.
 
+## Puntos de acceso (RF-06)
+
+Este bloque incorpora registro y consulta con el estado del punto. Se crea
+habilitado por defecto y admite estado inicial deshabilitado. El nombre se
+recorta, es obligatorio y admite hasta 100 caracteres. No se exige unicidad
+del nombre: cada punto se identifica por su Guid.
+
+El listado incluye ambos estados por defecto y permite filtrar por
+`isEnabled=true` o `isEnabled=false`. Usa páginas de 20 elementos por defecto,
+un máximo de 100 y orden estable por nombre e Id. Estas son decisiones de
+la API para consultar los puntos y reconocer los habilitados.
+
+| Método | Ruta | Resultado |
+| --- | --- | --- |
+| POST | `/api/access-points` | 201, punto creado y cabecera Location. |
+| GET | `/api/access-points/{id}` | 200, punto por Guid con su estado. |
+| GET | `/api/access-points?page=1&pageSize=20&isEnabled=true` | 200, items, page, pageSize y totalCount filtrado. |
+
+Cuerpo de registro:
+
+```json
+{
+  "name": "Entrada principal",
+  "isEnabled": true
+}
+```
+
+`isEnabled` es opcional; si se envía, debe ser un booleano. Las respuestas
+contienen `id`, `name` e `isEnabled`. Un punto inexistente devuelve 404;
+los campos desconocidos, datos inválidos o parámetros fuera de rango devuelven
+400 con ProblemDetails. Una consulta sin resultados devuelve una lista vacía.
+Los ejemplos están en `src/SGCAE.Api/SGCAE.Api.http`; copiar el Guid devuelto
+por POST en la variable `accessPointId` antes de consultar ese punto.
+
+Application separa `CreateAccessPointCommand` de `GetAccessPointQuery` y
+`ListAccessPointsQuery`, con manejadores y contratos de persistencia propios.
+Infrastructure guarda mediante EF Core y proyecta las lecturas a DTO sin
+seguimiento. El filtro, el conteo y la paginación se ejecutan en SQL Server.
+Este bloque usa la tabla y la migración existentes.
+
 ## Modelo de dominio
 
 ### Requisitos y alcance
@@ -256,7 +300,7 @@ una lista vacía; los números de página deben ser positivos.
 El dominio representa RF-01 (empleados), RF-02 (credenciales), RF-03 (movimientos)
 y RF-06 (puntos de acceso). Los registros contienen los datos necesarios para
 el futuro historial de RF-04. Las reglas se prueban en memoria y su persistencia
-se verifica en SQL Server. Los casos de uso y endpoints de empleados están
+se verifica en SQL Server. Los casos de uso y endpoints de empleados y puntos están
 implementados; los de los demás requisitos corresponden a etapas posteriores.
 
 ### Entidades y límites

@@ -16,7 +16,7 @@ using SGCAE.Infrastructure.Persistence;
 
 namespace SGCAE.Api.Tests;
 
-public sealed class EmployeeEndpointsTests(EmployeeApiFactory factory) : IClassFixture<EmployeeApiFactory>, IAsyncLifetime
+public sealed class EmployeeEndpointsTests(SgcaeApiFactory factory) : IClassFixture<SgcaeApiFactory>, IAsyncLifetime
 {
     private const string Route = "/api/employees";
     private HttpClient client = null!;
