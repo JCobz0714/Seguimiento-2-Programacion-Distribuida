@@ -4,6 +4,7 @@ using SGCAE.Domain.Entities;
 using SGCAE.Domain.Enums;
 using SGCAE.Domain.Services;
 using SGCAE.Domain.ValueObjects;
+using SGCAE.Testing;
 
 namespace SGCAE.Infrastructure.Tests;
 

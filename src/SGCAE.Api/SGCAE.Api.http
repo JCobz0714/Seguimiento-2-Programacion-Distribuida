@@ -1,4 +1,5 @@
 @SGCAE.Api_HostAddress = http://localhost:5080
+@employeeId = 00000000-0000-0000-0000-000000000000
 
 GET {{SGCAE.Api_HostAddress}}/health
 Accept: text/plain
@@ -7,5 +8,47 @@ Accept: text/plain
 
 GET {{SGCAE.Api_HostAddress}}/health/db
 Accept: text/plain
+
+###
+
+# Registrar. Copiar el id de la respuesta en employeeId.
+POST {{SGCAE.Api_HostAddress}}/api/employees
+Content-Type: application/json
+
+{
+  "identification": "00123",
+  "firstName": "Ana",
+  "lastName": "Pérez",
+  "email": "ana@example.com",
+  "jobTitle": "Operadora",
+  "organizationalArea": "Bodega"
+}
+
+###
+
+GET {{SGCAE.Api_HostAddress}}/api/employees/{{employeeId}}
+Accept: application/json
+
+###
+
+GET {{SGCAE.Api_HostAddress}}/api/employees?page=1&pageSize=20
+Accept: application/json
+
+###
+
+PUT {{SGCAE.Api_HostAddress}}/api/employees/{{employeeId}}
+Content-Type: application/json
+
+{
+  "firstName": "Ana",
+  "lastName": "Pérez",
+  "email": "ana@example.com",
+  "jobTitle": "Supervisora",
+  "organizationalArea": "Logística"
+}
+
+###
+
+PATCH {{SGCAE.Api_HostAddress}}/api/employees/{{employeeId}}/deactivate
 
 ###

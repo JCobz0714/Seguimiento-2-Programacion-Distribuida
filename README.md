@@ -9,8 +9,10 @@ de accesos.
 La solución cuenta con la estructura de Clean Architecture, una API ejecutable
 y un dominio con entidades, objetos de valor y reglas de acceso probadas.
 La persistencia usa Entity Framework Core 10.0.14 y SQL Server, con mapeos,
-restricciones, migración inicial y pruebas de integración. Los casos de uso
-CQRS y los endpoints de negocio se incorporarán en las siguientes etapas.
+restricciones, migración inicial y pruebas de integración. La gestión de
+empleados ya dispone de comandos, consultas y endpoints REST (RF-01).
+Credenciales, puntos de acceso, movimientos e historial se incorporarán
+en las siguientes etapas.
 Las reglas y decisiones del modelo se describen en la sección Modelo de dominio de este README.
 
 ## Requisitos de desarrollo
@@ -33,6 +35,8 @@ src/
 tests/
   SGCAE.Domain.Tests/    Pruebas de las reglas del negocio.
   SGCAE.Infrastructure.Tests/ Pruebas de persistencia en SQL Server real.
+  SGCAE.Api.Tests/       Pruebas HTTP de empleados con SQL Server real.
+  Shared/               Preparación compartida de bases temporales de pruebas.
 ```
 
 Las referencias entre proyectos son:
@@ -45,7 +49,7 @@ Api            -> Application, Infrastructure
 
 Domain no depende de los demás proyectos. Api referencia Infrastructure para
 configurar las implementaciones mediante inyección de dependencias; los casos
-de uso se organizarán en Application con separación entre comandos y consultas.
+de uso residen en Application con separación entre comandos y consultas.
 
 ## Compilar
 
@@ -66,9 +70,11 @@ dotnet test SGCAE.slnx --configuration Release
 El comando anterior ejecuta todas las pruebas y requiere SQL Server LocalDB
 en Windows o la variable de entorno `SGCAE_TEST_SQLSERVER` con la conexión
 a otro servidor SQL Server. La cuenta de pruebas debe poder crear y eliminar
-bases de datos. Cada ejecución crea una base `SGCAE_Tests_<Guid>`, aplica las
-migraciones y elimina únicamente esa base al finalizar. Cada prueba revierte
-sus datos mediante una transacción. No se usa la base `SGCAE_Taller2` para las pruebas.
+bases de datos. Cada conjunto de integración crea su propia base
+`SGCAE_Tests_<Guid>`, aplica las migraciones y elimina únicamente esa base
+al finalizar. Las pruebas de persistencia revierten sus transacciones; las
+pruebas HTTP limpian los datos de su base temporal antes de cada caso.
+No se usa la base `SGCAE_Taller2` para las pruebas.
 
 Para ejecutar solo las pruebas de dominio, sin SQL Server:
 
@@ -82,6 +88,15 @@ Las pruebas de persistencia comprueban lectura y escritura de las cuatro
 entidades, objetos de valor y estados, todos los motivos de rechazo,
 unicidad de códigos e identificaciones, comparación sensible a mayúsculas,
 claves foráneas, restricciones de estados y coherencia entre modelo y migración.
+
+Las pruebas HTTP de empleados recorren controlador, casos de uso, dominio y
+SQL Server: registro, consulta, actualización, desactivación repetida,
+conservación del historial, validaciones, duplicados (también concurrentes),
+paginación y lecturas sin seguimiento. Para ejecutarlas por separado:
+
+```powershell
+dotnet test tests/SGCAE.Api.Tests --configuration Release
+```
 
 ## Ejecutar la API
 
@@ -173,6 +188,67 @@ La base garantiza unicidad e integridad referencial. Las decisiones de acceso
 y las transiciones siguen siendo responsabilidad del dominio y de los futuros
 casos de uso. La persistencia no sustituye las reglas del negocio.
 
+## Gestión de empleados (RF-01)
+
+Decisiones de la API para este bloque: la identificación se asigna al registrar
+y no se modifica. Los empleados nacen activos; desactivar es una operación
+repetible que conserva sus datos. Actualizar un empleado inactivo no lo reactiva.
+El listado incluye activos e inactivos y usa paginación, con 20 elementos por
+defecto y un máximo de 100 por página, ordenados por identificación e Id.
+Las solicitudes solo aceptan los campos definidos por cada operación.
+Los datos inválidos producen HTTP 400, los empleados inexistentes HTTP 404 y
+las identificaciones duplicadas HTTP 409. El índice único de SQL Server resuelve
+también el conflicto entre registros simultáneos con la misma identificación.
+
+### Comandos, consultas y persistencia
+
+Application contiene `CreateEmployeeCommand`, `UpdateEmployeeCommand` y
+`DeactivateEmployeeCommand`, cada uno con su manejador. Las consultas
+`GetEmployeeQuery` y `ListEmployeesQuery` tienen sus propios manejadores y
+devuelven DTO. El controlador recibe HTTP y delega en estos casos de uso.
+
+Los comandos usan `IEmployeeRepository` para cargar entidades, ejecutar sus
+reglas y guardar los cambios. Las consultas usan `IEmployeeQueries`;
+Infrastructure implementa ambos contratos con EF Core. Las lecturas emplean
+`AsNoTracking`, y el listado pagina en SQL. Esta separación implementa CQRS
+sin exigir bases independientes ni una biblioteca de mediación.
+
+### Endpoints
+
+| Método | Ruta | Resultado |
+| --- | --- | --- |
+| POST | `/api/employees` | 201, empleado creado y cabecera Location. |
+| GET | `/api/employees/{id}` | 200, empleado por Guid. |
+| GET | `/api/employees?page=1&pageSize=20` | 200, items, page, pageSize y totalCount. |
+| PUT | `/api/employees/{id}` | 200, empleado actualizado. |
+| PATCH | `/api/employees/{id}/deactivate` | 204, sin cuerpo. |
+
+Cuerpo de registro:
+
+```json
+{
+  "identification": "00123",
+  "firstName": "Ana",
+  "lastName": "Pérez",
+  "email": "ana@example.com",
+  "jobTitle": "Operadora",
+  "organizationalArea": "Bodega"
+}
+```
+
+PUT exige los cinco campos de datos personales/laborales del ejemplo y omite
+`identification`. No admite modificar `id` ni `status`. Los campos adicionales
+se rechazan con 400 para evitar solicitudes aparentemente exitosas que ignoren
+cambios. PATCH no necesita cuerpo. Las respuestas incluyen `id` y `status`
+como `Active` o `Inactive`. Los errores usan `application/problem+json`;
+los fallos inesperados devuelven 500 sin detalles internos de SQL Server.
+
+El archivo `src/SGCAE.Api/SGCAE.Api.http` contiene el recorrido de ejemplo.
+Ejecutar el POST y copiar el Guid devuelto en la variable `employeeId` antes
+de consultar, actualizar o desactivar. Repetir el POST con la misma
+identificación produce 409. Una página posterior al último resultado devuelve
+una lista vacía; los números de página deben ser positivos.
+
 ## Modelo de dominio
 
 ### Requisitos y alcance
@@ -180,7 +256,8 @@ casos de uso. La persistencia no sustituye las reglas del negocio.
 El dominio representa RF-01 (empleados), RF-02 (credenciales), RF-03 (movimientos)
 y RF-06 (puntos de acceso). Los registros contienen los datos necesarios para
 el futuro historial de RF-04. Las reglas se prueban en memoria y su persistencia
-se verifica en SQL Server. Los casos de uso CQRS y los endpoints se incorporan después.
+se verifica en SQL Server. Los casos de uso y endpoints de empleados están
+implementados; los de los demás requisitos corresponden a etapas posteriores.
 
 ### Entidades y límites
 
@@ -212,8 +289,10 @@ conserva su escritura y no se considera único.
 
 La unicidad global de identificación y código es un requisito del enunciado,
 pero no puede comprobarse dentro de una entidad aislada. Ya se garantiza con
-índices únicos en SQL Server; los futuros casos de uso añadirán validaciones
-de aplicación, usando una comparación consistente con estos objetos de valor.
+índices únicos en SQL Server. El repositorio de empleados traduce el conflicto
+de su índice de identificación a un error de aplicación que la API responde
+con 409, incluso ante solicitudes concurrentes. Los demás errores de SQL
+no se interpretan como duplicados.
 
 ### Decisiones para los aspectos no definidos por el enunciado
 

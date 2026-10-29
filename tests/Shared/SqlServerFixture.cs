@@ -2,13 +2,15 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using SGCAE.Infrastructure.Persistence;
 
-namespace SGCAE.Infrastructure.Tests;
+namespace SGCAE.Testing;
 
 public sealed class SqlServerFixture : IAsyncLifetime
 {
     private readonly string databaseName = $"SGCAE_Tests_{Guid.NewGuid():N}";
     private bool ownsDatabase;
     private string connectionString = null!;
+
+    public string ConnectionString => connectionString;
 
     public SgcaeDbContext CreateContext() => new(
         new DbContextOptionsBuilder<SgcaeDbContext>().UseSqlServer(connectionString).Options);

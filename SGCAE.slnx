@@ -8,5 +8,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/SGCAE.Domain.Tests/SGCAE.Domain.Tests.csproj" />
     <Project Path="tests/SGCAE.Infrastructure.Tests/SGCAE.Infrastructure.Tests.csproj" />
+    <Project Path="tests/SGCAE.Api.Tests/SGCAE.Api.Tests.csproj" />
   </Folder>
 </Solution>

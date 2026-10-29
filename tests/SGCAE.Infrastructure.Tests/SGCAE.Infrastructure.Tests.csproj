@@ -11,5 +11,6 @@
     </PackageReference>
     <ProjectReference Include="../../src/SGCAE.Infrastructure/SGCAE.Infrastructure.csproj" />
     <Using Include="Xunit" />
+    <Compile Include="../Shared/SqlServerFixture.cs" Link="SqlServerFixture.cs" />
   </ItemGroup>
 </Project>

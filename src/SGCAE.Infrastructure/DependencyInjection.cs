@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SGCAE.Application.Employees;
 using SGCAE.Infrastructure.Persistence;
 
 namespace SGCAE.Infrastructure;
@@ -13,6 +14,8 @@ public static class DependencyInjection
 
         services.AddDbContext<SgcaeDbContext>(options =>
             options.UseSqlServer(connectionString, sql => sql.EnableRetryOnFailure()));
+        services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+        services.AddScoped<IEmployeeQueries, EmployeeQueries>();
         return services;
     }
 }
