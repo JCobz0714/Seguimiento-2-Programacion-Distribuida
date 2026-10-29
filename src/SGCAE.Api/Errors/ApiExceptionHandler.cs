@@ -29,7 +29,7 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails,
             logger.LogError(exception, "Error no controlado al procesar la solicitud.");
 
         context.Response.StatusCode = status;
-        await problemDetails.WriteAsync(new ProblemDetailsContext
+        var details = new ProblemDetailsContext
         {
             HttpContext = context,
             ProblemDetails = new ProblemDetails
@@ -39,7 +39,14 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails,
                 Detail = status == 500 ? "No fue posible completar la operación." : exception.Message,
                 Instance = context.Request.Path
             }
-        });
+        };
+        if (!await problemDetails.TryWriteAsync(details))
+        {
+            // Un Accept sin formato compatible no debe romper el manejo del error original.
+            await context.Response.WriteAsJsonAsync(details.ProblemDetails,
+                options: (System.Text.Json.JsonSerializerOptions?)null,
+                contentType: "application/problem+json", cancellationToken: cancellationToken);
+        }
         return true;
     }
 }

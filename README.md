@@ -116,6 +116,37 @@ Para ejecutar las pruebas HTTP por separado:
 dotnet test tests/SGCAE.Api.Tests --configuration Release
 ```
 
+### Escenarios completos
+
+`SystemScenarioTests` usa una base SQL Server temporal migrada y crea los datos
+del negocio mediante HTTP. Comprueba:
+
+- Registro y actualización de empleados, creación de puntos, asignación de
+  credenciales, entradas/salidas, bloqueo, revocación, desactivación y consulta
+  del historial con todos los filtros y paginación.
+- Conservación de autorizaciones y rechazos, incluidos código y punto
+  desconocidos, después de cambiar los estados del empleado y la credencial.
+- Conflictos por duplicados y operaciones inválidas sin datos parciales.
+- Accesos simultáneos con una revocación: se conserva cada decisión registrada
+  y los accesos posteriores a la revocación son rechazados.
+- Lectura de datos confirmados desde una segunda instancia de la API.
+- Respuestas 400, 404, 409 y 500 ante un Accept de HTML o texto.
+
+La revisión integral detectó que el escritor de ProblemDetails no podía
+atender ciertos valores de Accept y el manejador dejaba escapar la excepción
+original. Ahora se intenta el escritor configurado y, si no es compatible,
+se devuelve `application/problem+json` como respaldo, manteniendo el código
+HTTP y ocultando los detalles internos de errores inesperados.
+
+Para ejecutar solo estos escenarios:
+
+```powershell
+dotnet test tests/SGCAE.Api.Tests --configuration Release --filter FullyQualifiedName~SystemScenarioTests
+```
+
+Las pruebas de fallos de persistencia y rollback de los bloques anteriores
+siguen formando parte de la suite completa.
+
 ## Ejecutar la API
 
 ```powershell
