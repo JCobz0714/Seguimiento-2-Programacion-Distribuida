@@ -12,7 +12,8 @@ La persistencia usa Entity Framework Core 10.0.14 y SQL Server, con mapeos,
 restricciones, migración inicial y pruebas de integración. La gestión de
 empleados ya dispone de comandos, consultas y endpoints REST (RF-01).
 Los puntos de acceso permiten registro y consulta con su estado (RF-06).
-Credenciales, movimientos e historial se incorporarán
+La gestión de credenciales incluye asignación, consulta, bloqueo y revocación
+(RF-02). Movimientos e historial se incorporarán
 en las siguientes etapas.
 Las reglas y decisiones del modelo se describen en la sección Modelo de dominio de este README.
 
@@ -36,7 +37,7 @@ src/
 tests/
   SGCAE.Domain.Tests/    Pruebas de las reglas del negocio.
   SGCAE.Infrastructure.Tests/ Pruebas de persistencia en SQL Server real.
-  SGCAE.Api.Tests/       Pruebas HTTP de empleados y puntos con SQL Server real.
+  SGCAE.Api.Tests/       Pruebas HTTP de empleados, puntos y credenciales con SQL Server real.
   Shared/               Preparación compartida de bases temporales de pruebas.
 ```
 
@@ -96,6 +97,9 @@ conservación del historial, validaciones, duplicados (también concurrentes),
 paginación y lecturas sin seguimiento. Las de puntos de acceso verifican
 registro habilitado/deshabilitado, estado predeterminado, consultas, filtro,
 conteo filtrado, paginación con nombres repetidos y errores de entrada.
+Las de credenciales verifican asignación a empleados activos, unicidad global
+de códigos, operaciones concurrentes, transiciones definitivas, conservación
+del historial, filtros, paginación y validaciones.
 Para ejecutar las pruebas HTTP por separado:
 
 ```powershell
@@ -293,6 +297,57 @@ Infrastructure guarda mediante EF Core y proyecta las lecturas a DTO sin
 seguimiento. El filtro, el conteo y la paginación se ejecutan en SQL Server.
 Este bloque usa la tabla y la migración existentes.
 
+## Gestión de credenciales (RF-02)
+
+La asignación exige un empleado existente y activo. Un empleado puede tener
+varias credenciales. Cada código es único, distingue mayúsculas, elimina
+espacios exteriores y admite hasta 100 caracteres; no puede reutilizarse
+después de revocar una credencial. El código y el propietario son inmutables.
+El estado inicial es Active. Blocked y Revoked representan bloqueo y revocación.
+Bloquear y revocar son repetibles; la revocación es definitiva.
+
+Las consultas incluyen todos los estados y admiten filtros por empleado y
+estado, con páginas de 20 elementos por defecto y máximo 100, ordenadas por
+código e Id. Los errores de formato y reglas del dominio devuelven 400,
+las referencias inexistentes 404 y los códigos duplicados 409.
+
+| Método | Ruta | Resultado |
+| --- | --- | --- |
+| POST | `/api/credentials` | 201, credencial asignada y cabecera Location. |
+| GET | `/api/credentials/{id}` | 200, credencial por Guid. |
+| GET | `/api/credentials?employeeId={guid}&status=Active&page=1&pageSize=20` | 200, página filtrada. |
+| PATCH | `/api/credentials/{id}/block` | 200, credencial bloqueada. |
+| PATCH | `/api/credentials/{id}/revoke` | 200, credencial revocada. |
+
+POST recibe `employeeId` (Guid de un empleado registrado) y `code` (texto).
+Por ejemplo, reemplazar el identificador con el obtenido al crear un empleado:
+
+```json
+{
+  "employeeId": "00000000-0000-0000-0000-000000000001",
+  "code": "C-001"
+}
+```
+
+La respuesta contiene `id`, `employeeId`, `code` y `status`.
+Los campos adicionales en POST se rechazan. Los PATCH no necesitan cuerpo.
+Los filtros son opcionales; `status` acepta Active, Blocked o Revoked.
+El listado devuelve `items`, `page`, `pageSize` y `totalCount` después
+de aplicar los filtros. Un filtro por empleado sin credenciales devuelve
+una página vacía. Los ejemplos completos están en `SGCAE.Api.http`.
+
+Application contiene los comandos AssignCredential, BlockCredential y
+RevokeCredential, las consultas GetCredential y ListCredentials, sus
+manejadores y contratos. Las reglas permanecen en Credential y CredentialCode.
+Infrastructure ejecuta cada comando en una transacción. La lectura del
+empleado durante la asignación y de la credencial durante los cambios de estado
+utiliza bloqueos de actualización hasta confirmar la operación. Así, un
+bloqueo simultáneo no puede sobrescribir una revocación. Los reintentos de
+errores transitorios vuelven a leer el estado dentro de una nueva transacción.
+El índice único resuelve las asignaciones simultáneas con el mismo código.
+Las consultas usan AsNoTracking; el filtrado y la paginación se hacen en SQL.
+Este bloque utiliza el esquema existente.
+
 ## Modelo de dominio
 
 ### Requisitos y alcance
@@ -300,7 +355,7 @@ Este bloque usa la tabla y la migración existentes.
 El dominio representa RF-01 (empleados), RF-02 (credenciales), RF-03 (movimientos)
 y RF-06 (puntos de acceso). Los registros contienen los datos necesarios para
 el futuro historial de RF-04. Las reglas se prueban en memoria y su persistencia
-se verifica en SQL Server. Los casos de uso y endpoints de empleados y puntos están
+se verifica en SQL Server. Los casos de uso y endpoints de empleados, puntos y credenciales están
 implementados; los de los demás requisitos corresponden a etapas posteriores.
 
 ### Entidades y límites

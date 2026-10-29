@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SGCAE.Application.Employees;
 using SGCAE.Application.AccessPoints;
+using SGCAE.Application.Credentials;
 using SGCAE.Infrastructure.Persistence;
 
 namespace SGCAE.Infrastructure;
@@ -19,6 +20,8 @@ public static class DependencyInjection
         services.AddScoped<IEmployeeQueries, EmployeeQueries>();
         services.AddScoped<IAccessPointRepository, AccessPointRepository>();
         services.AddScoped<IAccessPointQueries, AccessPointQueries>();
+        services.AddScoped<ICredentialRepository, CredentialRepository>();
+        services.AddScoped<ICredentialQueries, CredentialQueries>();
         return services;
     }
 }
