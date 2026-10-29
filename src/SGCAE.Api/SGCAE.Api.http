@@ -120,3 +120,38 @@ PATCH {{SGCAE.Api_HostAddress}}/api/credentials/{{credentialId}}/block
 PATCH {{SGCAE.Api_HostAddress}}/api/credentials/{{credentialId}}/revoke
 
 ###
+
+# Para autorizar: empleado activo, credencial vigente y punto habilitado.
+POST {{SGCAE.Api_HostAddress}}/api/access-records
+Content-Type: application/json
+
+{
+  "credentialCode": "C-001",
+  "accessPointId": "{{accessPointId}}",
+  "movement": "Entry"
+}
+
+###
+
+POST {{SGCAE.Api_HostAddress}}/api/access-records
+Content-Type: application/json
+
+{
+  "credentialCode": "C-001",
+  "accessPointId": "{{accessPointId}}",
+  "movement": "Exit"
+}
+
+###
+
+# Devuelve 201 con result Rejected y persiste el intento.
+POST {{SGCAE.Api_HostAddress}}/api/access-records
+Content-Type: application/json
+
+{
+  "credentialCode": "DESCONOCIDA",
+  "accessPointId": "{{accessPointId}}",
+  "movement": "Entry"
+}
+
+###

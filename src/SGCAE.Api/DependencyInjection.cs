@@ -4,11 +4,21 @@ using SGCAE.Application.AccessPoints.Commands;
 using SGCAE.Application.AccessPoints.Queries;
 using SGCAE.Application.Credentials.Commands;
 using SGCAE.Application.Credentials.Queries;
+using SGCAE.Application.AccessRecords.Commands;
+using SGCAE.Domain.Services;
 
 namespace SGCAE.Api;
 
 internal static class DependencyInjection
 {
+    public static IServiceCollection AddAccessRecordUseCases(this IServiceCollection services)
+    {
+        services.AddSingleton(TimeProvider.System);
+        services.AddScoped<AccessPolicy>();
+        services.AddScoped<RegisterAccessHandler>();
+        return services;
+    }
+
     public static IServiceCollection AddCredentialUseCases(this IServiceCollection services)
     {
         services.AddScoped<AssignCredentialHandler>();

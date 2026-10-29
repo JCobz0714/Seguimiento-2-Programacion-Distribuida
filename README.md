@@ -13,8 +13,9 @@ restricciones, migración inicial y pruebas de integración. La gestión de
 empleados ya dispone de comandos, consultas y endpoints REST (RF-01).
 Los puntos de acceso permiten registro y consulta con su estado (RF-06).
 La gestión de credenciales incluye asignación, consulta, bloqueo y revocación
-(RF-02). Movimientos e historial se incorporarán
-en las siguientes etapas.
+(RF-02). El registro de entradas y salidas evalúa el acceso y almacena
+autorizaciones y rechazos (RF-03). La consulta del historial corresponde
+a la siguiente etapa.
 Las reglas y decisiones del modelo se describen en la sección Modelo de dominio de este README.
 
 ## Requisitos de desarrollo
@@ -37,7 +38,7 @@ src/
 tests/
   SGCAE.Domain.Tests/    Pruebas de las reglas del negocio.
   SGCAE.Infrastructure.Tests/ Pruebas de persistencia en SQL Server real.
-  SGCAE.Api.Tests/       Pruebas HTTP de empleados, puntos y credenciales con SQL Server real.
+  SGCAE.Api.Tests/       Pruebas HTTP de los casos de uso con SQL Server real.
   Shared/               Preparación compartida de bases temporales de pruebas.
 ```
 
@@ -100,6 +101,11 @@ conteo filtrado, paginación con nombres repetidos y errores de entrada.
 Las de credenciales verifican asignación a empleados activos, unicidad global
 de códigos, operaciones concurrentes, transiciones definitivas, conservación
 del historial, filtros, paginación y validaciones.
+Las de entradas/salidas verifican autorización y rechazos para ambos movimientos,
+referencias desconocidas, prioridades de rechazo, fecha UTC del servidor,
+validaciones y rollback ante un fallo posterior al INSERT. EmployeeNotFound
+se cubre en dominio: la clave foránea impide crear credenciales huérfanas
+en una base válida mediante los endpoints.
 Para ejecutar las pruebas HTTP por separado:
 
 ```powershell
@@ -348,6 +354,52 @@ El índice único resuelve las asignaciones simultáneas con el mismo código.
 Las consultas usan AsNoTracking; el filtrado y la paginación se hacen en SQL.
 Este bloque utiliza el esquema existente.
 
+## Registro de entradas y salidas (RF-03)
+
+La API recibe código de credencial, identificador del punto y movimiento Entry
+o Exit. La fecha se obtiene del servidor en UTC. Cada solicitud válida genera
+un registro, autorizado o rechazado, conservando los valores solicitados aunque
+la credencial o el punto no existan. Los datos mal formados devuelven 400 sin
+registrarse. Los registros guardados devuelven 201 en ambos resultados; el campo
+result indica Authorized o Rejected y rejectionReason explica el rechazo.
+No se devuelve una autorización si falla el guardado.
+
+La lectura de estados, evaluación y persistencia se realizan en una transacción
+serializable: los estados leídos se mantienen hasta guardar. Los reintentos
+transitorios vuelven a consultar y evaluar. Solicitudes HTTP repetidas son
+intentos independientes; no se implementa deduplicación entre solicitudes.
+
+Endpoint: `POST /api/access-records`. Reemplazar el identificador del punto
+con uno registrado y el código con el de una credencial:
+
+```json
+{
+  "credentialCode": "C-001",
+  "accessPointId": "00000000-0000-0000-0000-000000000001",
+  "movement": "Entry"
+}
+```
+
+Usar `Exit` para una salida. La respuesta incluye `id`,
+`requestedCredentialCode`, `requestedAccessPointId`, `credentialId`,
+`employeeId`, `accessPointId`, `movement`, `occurredAt`, `result` y
+`rejectionReason`. Las referencias a entidades desconocidas son null.
+Los campos adicionales enviados por el cliente, como fecha, resultado o empleado,
+se rechazan: la aplicación los resuelve. No se controla ocupación y se permiten
+movimientos consecutivos del mismo tipo.
+
+`RegisterAccessCommand` y su manejador coordinan el caso de uso en Application.
+`AccessPolicy` decide en Domain y `IAccessRecordRepository` permite consultar
+las entidades y guardar el registro. Infrastructure implementa el contrato
+con EF Core, transacciones y el esquema existente. El controlador responde
+solo después de confirmar la transacción; un fallo de persistencia devuelve
+500 con ProblemDetails sin exponer detalles internos.
+
+Los ejemplos HTTP contienen una entrada, una salida y un intento con código
+desconocido. Para observar una autorización, usar un empleado activo, una
+credencial vigente y un punto habilitado: los ejemplos de bloques anteriores
+también incluyen desactivación y revocación, que generan rechazos posteriores.
+
 ## Modelo de dominio
 
 ### Requisitos y alcance
@@ -355,8 +407,9 @@ Este bloque utiliza el esquema existente.
 El dominio representa RF-01 (empleados), RF-02 (credenciales), RF-03 (movimientos)
 y RF-06 (puntos de acceso). Los registros contienen los datos necesarios para
 el futuro historial de RF-04. Las reglas se prueban en memoria y su persistencia
-se verifica en SQL Server. Los casos de uso y endpoints de empleados, puntos y credenciales están
-implementados; los de los demás requisitos corresponden a etapas posteriores.
+se verifica en SQL Server. Los casos de uso y endpoints de empleados, puntos,
+credenciales y registro de accesos están implementados. La consulta del historial
+corresponde a la siguiente etapa.
 
 ### Entidades y límites
 
@@ -372,7 +425,7 @@ Cada entidad constituye un agregado pequeño con identidad Guid y protege su
 estado mediante operaciones de negocio. Las relaciones entre agregados usan
 identificadores. AccessPolicy coordina la decisión que depende de varios
 agregados, sin consultas a bases de datos ni dependencias de ASP.NET o EF Core.
-La aplicación resolverá las entidades y proporcionará la fecha del servidor.
+La aplicación resuelve las entidades y proporciona la fecha del servidor.
 
 ### Objetos de valor
 
@@ -433,10 +486,10 @@ Los datos mal formados (código vacío, Guid vacío, movimiento no definido o fe
 ausente) producen una excepción de dominio. No son rechazos de una solicitud
 válida. También se rechazan como errores los objetos resueltos que no
 corresponden al código, punto o propietario solicitado; esto evita autorizar
-usando datos de otra persona. La aplicación deberá distinguir estos errores
+usando datos de otra persona. La aplicación distingue estos errores
 de los rechazos del negocio.
 
 AccessPolicy devuelve el registro tanto al autorizar como al rechazar.
-La futura capa de aplicación deberá guardar ambos resultados antes de responder;
-las pruebas de integración ya verifican la persistencia de ambos resultados.
-La coordinación transaccional de los futuros casos de uso sigue pendiente.
+La capa de aplicación guarda ambos resultados antes de responder. Las pruebas
+HTTP verifican su persistencia y que un fallo después del INSERT revierta la
+transacción, sin devolver una decisión de acceso como si se hubiera guardado.
