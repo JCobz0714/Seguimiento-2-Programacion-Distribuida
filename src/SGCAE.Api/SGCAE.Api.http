@@ -2,6 +2,8 @@
 @employeeId = 00000000-0000-0000-0000-000000000000
 @accessPointId = 00000000-0000-0000-0000-000000000000
 @credentialId = 00000000-0000-0000-0000-000000000000
+@historyFrom = 2026-10-28T00:00:00-05:00
+@historyTo = 2026-10-30T00:00:00-05:00
 
 GET {{SGCAE.Api_HostAddress}}/health
 Accept: text/plain
@@ -118,6 +120,24 @@ PATCH {{SGCAE.Api_HostAddress}}/api/credentials/{{credentialId}}/block
 ###
 
 PATCH {{SGCAE.Api_HostAddress}}/api/credentials/{{credentialId}}/revoke
+
+###
+
+# Historial completo, del más reciente al más antiguo.
+GET {{SGCAE.Api_HostAddress}}/api/access-records?page=1&pageSize=20
+Accept: application/json
+
+###
+
+# Ajustar fechas y los identificadores de los ejemplos anteriores.
+GET {{SGCAE.Api_HostAddress}}/api/access-records?employeeId={{employeeId}}&accessPointId={{accessPointId}}&result=Rejected&from={{historyFrom}}&to={{historyTo}}&page=1&pageSize=20
+Accept: application/json
+
+###
+
+# Rechazos de cualquier empleado y punto, incluidos los desconocidos.
+GET {{SGCAE.Api_HostAddress}}/api/access-records?result=Rejected&from={{historyFrom}}&to={{historyTo}}&page=1&pageSize=20
+Accept: application/json
 
 ###
 

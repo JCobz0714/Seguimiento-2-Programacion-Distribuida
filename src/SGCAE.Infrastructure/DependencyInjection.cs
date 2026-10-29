@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<ICredentialRepository, CredentialRepository>();
         services.AddScoped<ICredentialQueries, CredentialQueries>();
         services.AddScoped<IAccessRecordRepository, AccessRecordRepository>();
+        services.AddScoped<IAccessRecordQueries, AccessRecordQueries>();
         return services;
     }
 }

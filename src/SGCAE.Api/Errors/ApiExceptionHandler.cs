@@ -4,6 +4,7 @@ using SGCAE.Application.Employees;
 using SGCAE.Application.AccessPoints;
 using SGCAE.Application.Credentials;
 using SGCAE.Domain.Common;
+using SGCAE.Application.AccessRecords;
 
 namespace SGCAE.Api.Errors;
 
@@ -14,6 +15,7 @@ internal sealed class ApiExceptionHandler(IProblemDetailsService problemDetails,
     {
         var (status, title) = exception switch
         {
+            AccessHistoryValidationException => (400, "Datos inválidos"),
             CredentialQueryValidationException => (400, "Datos inválidos"),
             CredentialNotFoundException => (404, "Credencial no encontrada"),
             DuplicateCredentialCodeException => (409, "Código duplicado"),

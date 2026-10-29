@@ -1,6 +1,6 @@
 # SGCAE - Sistema de Gestión y Control de Acceso de Empleados
 
-Backend del taller 2 de Programación Distribuida. El sistema permitirá administrar
+Backend del taller 2 de Programación Distribuida. El sistema permite administrar
 empleados y credenciales, registrar entradas y salidas y consultar el historial
 de accesos.
 
@@ -14,8 +14,8 @@ empleados ya dispone de comandos, consultas y endpoints REST (RF-01).
 Los puntos de acceso permiten registro y consulta con su estado (RF-06).
 La gestión de credenciales incluye asignación, consulta, bloqueo y revocación
 (RF-02). El registro de entradas y salidas evalúa el acceso y almacena
-autorizaciones y rechazos (RF-03). La consulta del historial corresponde
-a la siguiente etapa.
+autorizaciones y rechazos (RF-03). El historial permite filtros combinables
+y paginación con orden estable (RF-04).
 Las reglas y decisiones del modelo se describen en la sección Modelo de dominio de este README.
 
 ## Requisitos de desarrollo
@@ -106,6 +106,10 @@ referencias desconocidas, prioridades de rechazo, fecha UTC del servidor,
 validaciones y rollback ante un fallo posterior al INSERT. EmployeeNotFound
 se cubre en dominio: la clave foránea impide crear credenciales huérfanas
 en una base válida mediante los endpoints.
+Las del historial comprueban las 32 combinaciones de filtros, rango temporal
+con desplazamientos horarios, orden con fechas empatadas, páginas sin
+solapamientos sobre datos fijos, conteo filtrado, consultas vacías, validaciones
+y conservación de la evidencia tras cambios en el empleado.
 Para ejecutar las pruebas HTTP por separado:
 
 ```powershell
@@ -199,7 +203,7 @@ Hay índices por fecha, empleado, punto y resultado, junto al identificador del
 registro, para apoyar las consultas y paginación de las próximas etapas.
 
 La base garantiza unicidad e integridad referencial. Las decisiones de acceso
-y las transiciones siguen siendo responsabilidad del dominio y de los futuros
+y las transiciones siguen siendo responsabilidad del dominio y de los
 casos de uso. La persistencia no sustituye las reglas del negocio.
 
 ## Gestión de empleados (RF-01)
@@ -400,16 +404,67 @@ desconocido. Para observar una autorización, usar un empleado activo, una
 credencial vigente y un punto habilitado: los ejemplos de bloques anteriores
 también incluyen desactivación y revocación, que generan rechazos posteriores.
 
+## Consulta del historial (RF-04)
+
+El historial permite combinar empleado, punto solicitado, resultado y rango
+de fechas mediante AND. El filtro por punto utiliza el identificador solicitado,
+por lo que también encuentra rechazos por puntos desconocidos. El filtro por
+empleado solo encuentra registros con ese empleado identificado.
+
+El rango temporal incluye `from` y excluye `to`; se compara por instante UTC.
+Se recomienda enviar fechas ISO 8601 con Z o desplazamiento explícito.
+El orden es fecha descendente y, en empates, Id descendente según SQL Server.
+Las páginas empiezan en 1, con tamaño 20 por defecto y máximo 100.
+El orden es determinista para los mismos datos; nuevos registros entre consultas
+pueden desplazar las páginas. Cada respuesta mantiene consistentes su total y
+sus elementos mediante una transacción de lectura serializable.
+
+Endpoint: `GET /api/access-records`. Todos los parámetros son opcionales:
+
+| Parámetro | Uso |
+| --- | --- |
+| `employeeId` | Guid del empleado identificado en el registro. |
+| `accessPointId` | Guid del punto solicitado, incluso si no existe. |
+| `result` | Authorized o Rejected. |
+| `from` | Fecha/hora inicial incluida, por ejemplo 2026-10-29T00:00:00Z. |
+| `to` | Fecha/hora final excluida, por ejemplo 2026-10-30T00:00:00Z. |
+| `page` | Página desde 1; por defecto 1. |
+| `pageSize` | Elementos por página, de 1 a 100; por defecto 20. |
+
+Ejemplo de filtros combinados:
+
+```http
+GET /api/access-records?result=Rejected&from=2026-10-29T00:00:00Z&to=2026-10-30T00:00:00Z&page=1&pageSize=20
+```
+
+Para consultar un día de Colombia, usar desde las 00:00:00-05:00 hasta las
+00:00:00-05:00 del día siguiente. En una URL, codificar el signo + de un
+desplazamiento positivo como %2B.
+
+La respuesta 200 contiene `items` (los registros con sus valores solicitados,
+referencias, fecha, movimiento, resultado y motivo), `page`, `pageSize` y
+`totalCount`. El total se calcula después de combinar los filtros y antes
+de paginar. Sin coincidencias o con una página posterior a la última se devuelve
+una lista vacía, conservando el total filtrado. Un Guid de filtro sin registros
+no produce 404.
+
+Páginas inválidas, Guid vacíos, resultados no definidos, fechas mal formadas
+o un rango donde `from >= to` devuelven 400 con ProblemDetails.
+`ListAccessRecordsQuery` y su manejador validan en Application;
+`IAccessRecordQueries` separa la lectura del registro de movimientos.
+Infrastructure aplica los filtros, el orden y la paginación en SQL Server con
+AsNoTracking. Se usa el esquema existente. El límite de cada respuesta evita
+cargar todo el historial en memoria.
+
 ## Modelo de dominio
 
 ### Requisitos y alcance
 
 El dominio representa RF-01 (empleados), RF-02 (credenciales), RF-03 (movimientos)
 y RF-06 (puntos de acceso). Los registros contienen los datos necesarios para
-el futuro historial de RF-04. Las reglas se prueban en memoria y su persistencia
+el historial de RF-04. Las reglas se prueban en memoria y su persistencia
 se verifica en SQL Server. Los casos de uso y endpoints de empleados, puntos,
-credenciales y registro de accesos están implementados. La consulta del historial
-corresponde a la siguiente etapa.
+credenciales, registro de accesos y consulta del historial están implementados.
 
 ### Entidades y límites
 

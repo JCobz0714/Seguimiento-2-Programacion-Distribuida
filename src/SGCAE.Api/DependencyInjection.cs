@@ -5,6 +5,7 @@ using SGCAE.Application.AccessPoints.Queries;
 using SGCAE.Application.Credentials.Commands;
 using SGCAE.Application.Credentials.Queries;
 using SGCAE.Application.AccessRecords.Commands;
+using SGCAE.Application.AccessRecords.Queries;
 using SGCAE.Domain.Services;
 
 namespace SGCAE.Api;
@@ -16,6 +17,7 @@ internal static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<AccessPolicy>();
         services.AddScoped<RegisterAccessHandler>();
+        services.AddScoped<ListAccessRecordsHandler>();
         return services;
     }
 
